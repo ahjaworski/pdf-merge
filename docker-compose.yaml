@@ -1,0 +1,9 @@
+services:
+  pdf-merge:
+    build: .
+    container_name: pdf-merge
+    restart: always
+    ports:
+      - "8080:8080"
+    environment:
+      JAVA_TOOL_OPTIONS: "-Xms512m -Xmx1024m"

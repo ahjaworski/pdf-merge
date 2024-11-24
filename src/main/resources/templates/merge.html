@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <title>Merge files to PDF</title>
+    <style>
+        body, html {
+            height: 100%;
+            margin: 0;
+            font-family: Arial, Helvetica, sans-serif;
+            font-size: 2vw;
+            @media only screen and (max-width: 1000px) {
+                font-size: 3vw;
+            }
+
+            opacity: 1;
+        }
+
+        html {
+            background: url(../background.jpg) no-repeat center center fixed;
+            -webkit-background-size: cover;
+            -moz-background-size: cover;
+            -o-background-size: cover;
+            background-size: cover;
+        }
+
+        button {
+            font-size: 1.5vw;
+            @media only screen and (max-width: 1000px) {
+                font-size: 3vw;
+            }
+        }
+
+        .card {
+            position: relative;
+            margin: 0 auto;
+            margin-top: 2em;
+            padding: 1em;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 0 4px 8px 0 rgba(0,0,0,0.2);
+            min-width: 50%;
+            max-width: 700px;
+            background-color: rgba(255, 255, 255, 1);
+
+            @media only screen and (max-width: 1000px) {
+                min-width: 90%;
+                max-width: 90%;
+            }
+        }
+
+        .card:hover {
+            box-shadow: 0 8px 16px 0 rgba(0,0,0,0.2);
+        }
+        .card h1 {
+            text-align: center;
+        }
+        .card button {
+            text-align: center;
+        }
+
+        li.file-item {
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .drop-zone {
+            border: 2px dashed #ccc;
+            border-radius: 5px;
+            padding: 20px;
+            text-align: center;
+            color: #999;
+            cursor: pointer;
+        }
+        .drop-zone.dragover {
+            border-color: #666;
+            background-color: #f9f9f9;
+        }
+        .file-list {
+            list-style: none;
+            padding: 0;
+            margin: 10px 0;
+        }
+        .file-item {
+            padding: 5px 10px;
+            margin: 5px 0;
+            border: 1px solid #ddd;
+            border-radius: 3px;
+            background-color: #f8f8f8;
+            cursor: move;
+            display: flex;
+            justify-content: space-between;
+        }
+        .file-item.dragging {
+            opacity: 0.5;
+        }
+        .remove-button {
+            background-color: #ff6666;
+            border: none;
+            color: white;
+            padding: 5px 10px;
+            cursor: pointer;
+            border-radius: 3px;
+        }
+        #createPdfButton {
+            margin: 0 auto;
+
+
+        }
+    </style>
+    <script>
+      let files = [];
+
+      function handleDrop(event) {
+        event.preventDefault();
+        const droppedFiles = Array.from(event.dataTransfer.files);
+        droppedFiles.forEach(file => {
+          files.push(file);
+        });
+        updateFileList();
+        checkFiles();
+      }
+
+      function handleDragOver(event) {
+        event.preventDefault();
+        const dropZone = document.getElementById('dropZone');
+        dropZone.classList.add('dragover');
+      }
+
+      function handleDragLeave(event) {
+        const dropZone = document.getElementById('dropZone');
+        dropZone.classList.remove('dragover');
+      }
+
+      function handleDropZoneClick() {
+        const fileInput = document.getElementById('fileInput');
+        fileInput.click();
+      }
+
+      function handleFilesSelected(event) {
+        const selectedFiles = Array.from(event.target.files);
+        selectedFiles.forEach(file => {
+          files.push(file);
+        });
+        updateFileList();
+        checkFiles();
+      }
+
+      function updateFileList() {
+        const fileList = document.getElementById('fileList');
+        fileList.innerHTML = '';
+        files.forEach((file, index) => {
+          const listItem = document.createElement('li');
+          listItem.classList.add('file-item');
+          const span = document.createElement('span');
+          span.textContent = `${index + 1}. ${file.name}`;
+          listItem.append(span);
+          // listItem.textContent = `${index + 1}. ${file.name}`;
+          listItem.draggable = true;
+          listItem.addEventListener('dragstart', () => {
+            listItem.classList.add('dragging');
+            listItem.dataset.index = index;
+          });
+          listItem.addEventListener('dragend', () => {
+            listItem.classList.remove('dragging');
+          });
+          listItem.addEventListener('dragover', (event) => {
+            event.preventDefault();
+            const draggingItem = document.querySelector('.dragging');
+            const draggingIndex = draggingItem.dataset.index;
+            const targetIndex = index;
+            if (draggingIndex !== targetIndex.toString()) {
+              const movingItem = files.splice(draggingIndex, 1)[0];
+              files.splice(targetIndex, 0, movingItem);
+              updateFileList();
+            }
+          });
+          const removeButton = document.createElement('button');
+          removeButton.classList.add('remove-button');
+          removeButton.textContent = 'Delete';
+          removeButton.addEventListener('click', () => {
+            files.splice(index, 1);
+            updateFileList();
+            checkFiles();
+          });
+          listItem.appendChild(removeButton);
+          fileList.appendChild(listItem);
+        });
+      }
+
+      function checkFiles() {
+        const createPdfButton = document.getElementById('createPdfButton');
+        createPdfButton.disabled = files.length <= 0;
+      }
+
+      function submitForm(event) {
+        const formData = new FormData();
+        files.forEach((file, index) => {
+          formData.append('files', file);
+          formData.append('order', index);
+        });
+        fetch('/api/pdf/merge', {
+          method: 'POST',
+          body: formData,
+        })
+          .then(response => {
+            if (!response.ok) {
+              throw new Error('Upload mislukt!');
+            }
+            return response.blob();
+          })
+          .then(blob => {
+            const firstFileName = formData.getAll('files')[0].name;
+            const fileBaseName = firstFileName.split('.').slice(0, -1).join('.');
+            const fileName = `${fileBaseName}-merged.pdf`;
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.style.display = 'none';
+            a.href = url;
+            a.download = fileName;
+            document.body.appendChild(a);
+            a.click();
+            window.URL.revokeObjectURL(url);
+          })
+          .catch(error => alert(error.message));
+        event.preventDefault();
+      }
+      checkFiles();
+    </script>
+</head>
+<body>
+<div class="card">
+    <h1>Merge files to PDF</h1>
+    <div id="dropZone" class="drop-zone"
+         onclick="handleDropZoneClick()"
+         ondragover="handleDragOver(event)"
+         ondragleave="handleDragLeave(event)"
+         ondrop="handleDrop(event)">
+        Drag & drop files or click to select.
+    </div>
+    <input type="file" id="fileInput" multiple style="display: none;" onchange="handleFilesSelected(event)">
+    <ul id="fileList" class="file-list"></ul>
+    <button id="createPdfButton" onclick="submitForm(event)" disabled>Create PDF</button>
+</div>
+</body>
+</html>
