@@ -93,8 +93,9 @@ public class PdfMergeService {
     private BufferedImage compressImage(BufferedImage originalImage) throws IOException {
         var outputStream = new ByteArrayOutputStream();
         Thumbnails.of(originalImage)
-            .size(612, 792)
-            .outputFormat("jpeg")
+            .size(600, 800)
+            .keepAspectRatio(true)
+            .outputFormat("png")
             .outputQuality(1)
             .toOutputStream(outputStream);
 
@@ -102,8 +103,8 @@ public class PdfMergeService {
     }
 
     private File convertBufferedImageToFile(BufferedImage image) throws IOException {
-        var tempFile = File.createTempFile("temp-image-", ".jpg");
-        ImageIO.write(image, "jpeg", tempFile);
+        var tempFile = File.createTempFile("temp-image-", ".png");
+        ImageIO.write(image, "png", tempFile);
         return tempFile;
     }
 
